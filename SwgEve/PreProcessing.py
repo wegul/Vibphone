@@ -3,10 +3,21 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from scipy import interpolate
 
+def readFileGenByAcc(FileName):
+    csv_reader=pd.read_csv(FileName)
+
+    xList = csv_reader.iloc[:,0].values
+    yList = csv_reader.iloc[:,1].values
+    zList = csv_reader.iloc[:,2].values
+    length=len(xList)
+    tList=np.linspace(0,length,length,dtype=int)
+    return tList, xList, yList, zList
 
 def readFile(FileName):
     tsv_reader = pd.read_csv(FileName, sep='\t', index_col=0, header=None)
     tList = tsv_reader[1].values
+    # for i in range(len(tList)):
+    #     tList[i]=(int)((float)(tList[i][7:])*1000)
     xList = tsv_reader[2].values
     yList = tsv_reader[3].values
     zList = tsv_reader[4].values
@@ -28,7 +39,9 @@ def showZMap(tList, zList, title='Original map'):
     # plt.xticks(np.linspace(0,25000,10))
     ax.set_title(title, fontsize=20)
     # ax.plot(tList, y, color='red')
-    ax.plot(tList, zList, color='blue')
+    ax.scatter(tList, zList, color='blue')
+    temp=[608, 1830, 4826, 5916, 8510, 9608, 12538, 13942, 16428, 17597]
+    ax.scatter(tList[temp],zList[temp],color='red',linewidths=1,marker='*')
     fig.show()
 
 def interp(tList, xList, yList, zList):  # 'slinear' interpolation
@@ -102,10 +115,10 @@ def standardize(tList, xList, yList, zList, highpass=-1):
 
     tList, xList, yList, zList = interp(tList, xList, yList, zList)
     # remove initialing time(invalid sound),which in data714 is the first 4 seconds
-    tList = tList[900:-2000]
-    xList = xList[900:-2000]
-    yList = yList[900:-2000]
-    zList = zList[900:-2000]
+    tList = tList[200:-300]
+    xList = xList[200:-300]
+    yList = yList[200:-300]
+    zList = zList[200:-300]
     if highpass >= 0:
         fList, xList, yList, zList = highPassFilter(xList, yList, zList,highpass)
         return tList, fList, xList, yList, zList
@@ -113,12 +126,15 @@ def standardize(tList, xList, yList, zList, highpass=-1):
 
 
 if __name__ == '__main__':
-    tList, xList, yList, zList = readFile('src/handhold928ty1six.tsv')
-    # showMap(tList, xList, yList, zList, 'orig')
+    tList, xList, yList, zList = readFile('src113/siri_two_up_bass1.tsv')
+    showMap(tList, xList, yList, zList, 'orig')
     # 713time==21593ms
     # 714time==25039ms
     tList,freqList, xList, yList, zList = standardize(tList, xList, yList, zList, highpass=85/1000)
     xList, yList, zList=reverseFFT(xList, yList, zList)
     # showMap(tList, xList, yList, zList,title='interpolated',ylim=(-0.5,0.5))
-    # tList,xList, yList, zList=highPassFilter(xList, yList, zList)
-    showMap(tList, xList, yList, zList, '100hz high passed swg',ylim=(-0.02,0.02))
+    # tList,xList, yList, zList=highPassFilter(xList, yList, zList,thresRate=0.1)
+
+    showMap(tList, xList, yList, zList, '100hz high passed swg',ylim=(-0.2,0.2))
+
+    # showZMap(tList,zList,'sdasd')
