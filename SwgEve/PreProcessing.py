@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from scipy import interpolate
+from scipy import signal
 
 def readFileGenByAcc(FileName):
     csv_reader=pd.read_csv(FileName)
@@ -10,7 +11,7 @@ def readFileGenByAcc(FileName):
     yList = csv_reader.iloc[:,1].values
     zList = csv_reader.iloc[:,2].values
     length=len(xList)
-    tList=np.linspace(0,length,length,dtype=int)
+    tList=np.linspace(0,length/500*1000,length,dtype=int)
     return tList, xList, yList, zList
 
 def readFile(FileName):
@@ -34,15 +35,18 @@ def showMap(tList, xList, yList, zList, title='Original map', ylim=None):
     for i in range(3):
         ax[i].plot(tList, lists[i], color=colors[i])
     fig.show()
-def showZMap(tList, zList, title='Original map'):
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6), sharey=True)
+def showFreqMap(freqList, zList, title='Z-Freq map',color='blue'):
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 12), sharey=True)
     # plt.xticks(np.linspace(0,25000,10))
     ax.set_title(title, fontsize=20)
     # ax.plot(tList, y, color='red')
-    ax.scatter(tList, zList, color='blue')
-    temp=[608, 1830, 4826, 5916, 8510, 9608, 12538, 13942, 16428, 17597]
-    ax.scatter(tList[temp],zList[temp],color='red',linewidths=1,marker='*')
+    # plt.xlim((-500,500))
+    # plt.ylim((8,11))
+    plt.xticks(np.arange(-500,500,20))
+    # ax.yticks(np.arange(7,12,0.5))
+    ax.plot(freqList, np.abs(zList), color=color)
     fig.show()
+
 
 def interp(tList, xList, yList, zList):  # 'slinear' interpolation
     newTimeSet = np.linspace(0, tList[-1], tList[-1])
@@ -57,45 +61,49 @@ def interp(tList, xList, yList, zList):  # 'slinear' interpolation
 
 def highPassFilter(xList, yList, zList, thresRate):
     # number of samples
-    len = xList.size
-    thres=(int)(len*thresRate)
+    length = xList.size
+    # thres=(int)(length*thresRate)
     '''   
     normalize, 
     this does not need 'absolute value' as ifft needs it keep the way it used to be
     '''
-    resultX = np.fft.fft(xList)
-    resultY = np.fft.fft(yList)
-    resultZ = np.fft.fft(zList)
+    fs=1000
+    freqsX,tx,resultX, = signal.stft(xList,fs,nperseg=128,noverlap=120,window="hann",boundary=None,padded=False,return_onesided=True)
+    freqsY,ty,resultY = signal.stft(yList,fs,nperseg=128,noverlap=120,window="hann",boundary=None,padded=False,return_onesided=True)
+    freqsZ,tz,resultZ = signal.stft(zList,fs,nperseg=128,noverlap=120,window="hann",boundary=None,padded=False,return_onesided=True)
+    thres = np.ceil(resultZ.shape[0] * thresRate)
+    # resultX = np.fft.fft(xList)
+    # resultY = np.fft.fft(yList)
+    # resultZ = np.fft.fft(zList)
     '''
     freqs above 1000/2, are symmetric to those below. 
     However, we dont do the cutoff here, 
     otherwise the timeline(tList) would be confusing
     '''
-    # resultX = resultX[range(0,(int)(len / 2))]
-    # resultY = resultY[range(0,(int)(len / 2))]
-    # resultZ = resultZ[range(0,(int)(len / 2))]
 
-    # due to Nyquist, we can only pick freqs below 1000/2
-    freqs = np.fft.fftfreq(len,0.001)
-    for i in range(0,len):
-        if i <= thres or len - thres <= i:
-        # if i<=thres:
-            resultX[i] = 0
-            resultY[i] = 0
-            resultZ[i] = 0
+    for i in range(0,resultZ.shape[0]):
+        if i <= thres:
+            resultX[i,:] = 0
+            resultY[i,:] = 0
+            resultZ[i,:] = 0
     #===========debug=========
     # fig,ax=plt.subplots()
     # plt.title("resultZ")
     # ax.plot(freqList,np.real(zList))
     # fig.show()
 
-    return freqs, resultX, resultY, resultZ
+    return freqsZ, resultX, resultY, resultZ
 
 def reverseFFT(xList, yList, zList):
-    resultX = np.real(np.fft.ifft(xList))
-    resultY = np.real(np.fft.ifft(yList))
-    resultZ = np.real(np.fft.ifft(zList))
-    return resultX,resultY,resultZ
+    fs=1000
+    t,resultX = signal.istft(xList,fs,nfft=128,noverlap=120)
+    t,resultY = signal.istft(yList,fs,nfft=128,noverlap=120)
+    t,resultZ = signal.istft(zList,fs,nfft=128,noverlap=120)
+    # resultX = np.abs(np.fft.ifft(xList))
+    # resultY = np.abs(np.fft.ifft(yList))
+    # resultZ = np.abs(np.fft.ifft(zList))
+    # TODO: test if the cause is ABS
+    return t,resultX,resultY,resultZ
 
 def standardize(tList, xList, yList, zList, highpass=-1):
     '''
@@ -115,10 +123,10 @@ def standardize(tList, xList, yList, zList, highpass=-1):
 
     tList, xList, yList, zList = interp(tList, xList, yList, zList)
     # remove initialing time(invalid sound),which in data714 is the first 4 seconds
-    tList = tList[200:-300]
-    xList = xList[200:-300]
-    yList = yList[200:-300]
-    zList = zList[200:-300]
+    tList = tList[:-50]
+    xList = xList[:-50]
+    yList = yList[:-50]
+    zList = zList[:-50]
     if highpass >= 0:
         fList, xList, yList, zList = highPassFilter(xList, yList, zList,highpass)
         return tList, fList, xList, yList, zList
@@ -126,15 +134,13 @@ def standardize(tList, xList, yList, zList, highpass=-1):
 
 
 if __name__ == '__main__':
-    tList, xList, yList, zList = readFile('src113/siri_two_up_bass1.tsv')
-    showMap(tList, xList, yList, zList, 'orig')
-    # 713time==21593ms
-    # 714time==25039ms
-    tList,freqList, xList, yList, zList = standardize(tList, xList, yList, zList, highpass=85/1000)
-    xList, yList, zList=reverseFFT(xList, yList, zList)
-    # showMap(tList, xList, yList, zList,title='interpolated',ylim=(-0.5,0.5))
-    # tList,xList, yList, zList=highPassFilter(xList, yList, zList,thresRate=0.1)
+    # name="test100one"
+    prefix = "F:/2020AccelEve/database/sampled_by_s8/"
+    word = "secret"
+    person = "wg"
+    tList, xList, yList, zList = readFile(prefix+person+'_s8'+'_'+word+'.tsv')
+    showMap(tList, xList, yList, zList, title="s9_swg_origin")
+    tList, freqList,xList, yList, zList = standardize(tList, xList, yList, zList, highpass=10/1000)
+    xList, yList, zList = reverseFFT(xList, yList, zList)
+    showMap(tList,xList,yList, zList,title="s9")
 
-    showMap(tList, xList, yList, zList, '100hz high passed swg',ylim=(-0.2,0.2))
-
-    # showZMap(tList,zList,'sdasd')

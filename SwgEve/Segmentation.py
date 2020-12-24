@@ -4,8 +4,8 @@ import PreProcessing as pre
 def smooth(zList,tList):
     zList_tmp=zList
     length = len(zList)
-    config1 = 200
-    config2 = 30
+    config1 = 300
+    config2 = 100
     newSize = config1 + config2 - 2
     tSmooth = tList[(int)(newSize / 2):length - (int)(newSize / 2)]
     # tSmooth = tList[:]
@@ -39,7 +39,7 @@ def findCuttingPoints(tSmooth,zSmooth,para):
 
     for i in cuttingpoints:
         plt.scatter(tSmooth[i], zSmooth[i], color='purple',linewidths=1)
-    # fig.show()
+    fig.show()
     return cuttingpoints
 '''
 1. ifft
@@ -48,7 +48,7 @@ def findCuttingPoints(tSmooth,zSmooth,para):
 4. set a threshold as 0.8Mmax+0.2Mmin
 '''
 # if __name__ == '__main__':
-    # tList, xList, yList, zList = pre.readFile('src113/siri_two_up_bass1.tsv')
+    # tList, xList, yList, zList = pre.readFile('siri_digits/siri_two_up_bass1.tsv')
     # # 714time==25039ms
     # tList, freqList, xList, yList, zList = pre.standardize(tList, xList, yList, zList, highpass=120/1000)
     # # pre.showMap(freqList, xList, yList, zList, 'high passed', ylim=(0, 15))
